@@ -1,0 +1,41 @@
+---
+description: 实验留痕：记录数据变更、实验日志、配置快照与 commit
+alwaysApply: true
+---
+
+# 实验留痕助手
+
+权威规范：项目根目录 `EXPERIMENT_TRACE.md`  
+本项目流程：根目录 `instruction.md`
+
+## 触发时必须更新文件（不要只在聊天里总结）
+
+| 用户说 | 动作 |
+|--------|------|
+| 记录数据变更 / 数据更新了 | 追加 `records/data/CHANGELOG.md`（新版本 data-vN） |
+| 开始 exp-XXX / 开新实验 | 改配置 → 快照到 `configs/snapshots/exp-XXX.yaml` → `records/experiments.md` 新条目，状态「进行中」 |
+| exp-XXX 完成 / 训练结束 | 补全该条：结果、观察、结论，状态「已完成」或「失败」 |
+| 对比图 / 结果在 records/results | 更新 `records/results/README.md` 索引表 |
+| 同步记录并 commit | 核对记录与代码 → commit；**未要求则不 push** |
+| 写简历描述 | 仅基于 `records/experiments.md` 真实内容，不夸大 |
+
+## 格式
+
+- 实验编号：`exp-001` 递增；数据版本：`data-v1` 递增
+- **追加**写入，不删历史（除非用户要求纠错）
+- 更新 `records/experiments.md` 顶部**索引表**
+- 改 yaml/配置必留 `configs/snapshots/` 副本
+
+## 禁止
+
+- 编造 loss、指标、时长
+- 未经要求 git push
+- 提交权重、私有原图、密钥
+
+## 三条万能触发语（用户可用）
+
+```
+记录数据变更：[简述] + [统计或命令输出]
+记录实验 exp-XXX：[配置 / 结果 / 现象]
+同步记录并 commit（不要 push）
+```

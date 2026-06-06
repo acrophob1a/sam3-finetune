@@ -1,6 +1,7 @@
 import os
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 from tqdm import tqdm
+import glob
 import numpy as np
 import re
 import torch
@@ -84,6 +85,18 @@ def parse_args():
         help="directory of saved images",
     )
     parser.add_argument(
+        "--image_dir",
+        type=str,
+        default='datasets/raw_images_train',
+        help="directory containing training images",
+    )
+    parser.add_argument(
+        "--max_image_size",
+        type=int,
+        default=1536,
+        help="resize long edge to this max size before segmentation (0 = no resize)",
+    )
+    parser.add_argument(
         "--num_pts",
         type=int,
         default=512,
@@ -123,10 +136,19 @@ def get_sam_model_and_processor(args):
     return model, processor
 
 
-def image_batch_preload(path_list, processor):
+def image_batch_preload(path_list, processor, max_image_size=1536):
     image_pils = []
     for path in path_list:
-        image = PILImage.open(path)
+        image = PILImage.open(path).convert("RGB")
+        if max_image_size > 0:
+            w, h = image.size
+            long_edge = max(w, h)
+            if long_edge > max_image_size:
+                scale = max_image_size / long_edge
+                image = image.resize(
+                    (int(w * scale), int(h * scale)),
+                    PILImage.LANCZOS,
+                )
         image_pils.append(image)
     inference_state = processor.set_image_batch(image_pils)
     return inference_state, image_pils
@@ -316,19 +338,31 @@ if __name__ == '__main__':
     args = parse_args()
     model, processor = get_sam_model_and_processor(args)
 
-    # 替换成你选择的图像数据集，处理成path list
-    image_list = [
-        f"{sam3_root}/examples/images/truck.jpg",
-        f"{sam3_root}/examples/images/test_image.jpg",
-        f"{sam3_root}/examples/images/groceries.jpg",
-    ]
+    image_dir = args.image_dir
+    if not os.path.isabs(image_dir):
+        image_dir = os.path.join(sam3_root, image_dir)
+    image_list = sorted(
+        p for p in glob.glob(os.path.join(image_dir, "**", "*"), recursive=True)
+        if p.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    )
+    if not image_list:
+        raise FileNotFoundError(f"No images found in {image_dir}")
+    print(f"Found {len(image_list)} images in {image_dir}")
 
     make_batches = lambda lst, bs: [lst[i:i + bs] for i in range(0, len(lst), bs)]
     image_batches = make_batches(image_list, args.batchsize)
 
-    data_list = []
+    save_root = args.save_root
+    if not os.path.isabs(save_root):
+        save_root = os.path.join(sam3_root, save_root)
+    segment_cache_dir = os.path.join(save_root, "_segment_cache")
+    os.makedirs(segment_cache_dir, exist_ok=True)
+    segment_cache = []
+
     for batch in tqdm(image_batches, desc=f'Segmenting'):
-        inference_state, img_pils = image_batch_preload(batch, processor)
+        inference_state, img_pils = image_batch_preload(
+            batch, processor, max_image_size=args.max_image_size
+        )
 
         pts_batch, pts_labels_batch = [], []
         for img_pil in img_pils:
@@ -355,50 +389,76 @@ if __name__ == '__main__':
                 score_thresh=args.score_thresh,
                 iou_thresh=args.iou_thresh,
             )
-            if final_masks is not None and final_scores is not None:
-                output_masks = [mask_to_img(mask) for mask in final_masks]
-                output_scores = final_scores
-            
-            data_item = {
-                'image_id': str(uuid.uuid4()),
+            if final_masks is None or final_scores is None:
+                continue
+            image_id = str(uuid.uuid4())
+            mask_paths, score_list = [], []
+            for i, (mask, score) in enumerate(zip(final_masks, final_scores)):
+                mask_img = mask_to_img(mask)
+                mask_path = os.path.join(segment_cache_dir, f"{image_id}_{i}.png")
+                mask_img.save(mask_path)
+                mask_paths.append(mask_path)
+                score_list.append(float(score))
+            segment_cache.append({
+                'image_id': image_id,
                 'image_path': batch[b],
-                'masks': output_masks,
-                'scores': output_scores,
-            }
-            data_list.append(data_item)
-    
-    # qwenvl processing  
-    data_items = []
-    for d in data_list:
-        for mask, score in zip(d['masks'], d['scores']):
-            image_with_mask = overlay_mask_on_image(d['image_path'], mask)
-            data_items.append({
-                'image_id': d['image_id'],
-                'image_path': d['image_path'],
+                'mask_paths': mask_paths,
+                'scores': score_list,
+            })
+        torch.cuda.empty_cache()
+
+    print(f"Segmented {len(segment_cache)} images, "
+          f"{sum(len(x['mask_paths']) for x in segment_cache)} masks cached")
+
+    del model, processor
+    torch.cuda.empty_cache()
+
+    model, processor = get_qwen_model_and_processor(args)
+
+    def flush_qwen_batch(batch_msgs, batch_meta):
+        if not batch_msgs:
+            return []
+        output_texts = batch_inference(batch_msgs, model, processor)
+        batch_results = []
+        for meta, text in zip(batch_meta, output_texts):
+            match = re.search(r"the highlighted area:\s*(.+)", text, re.IGNORECASE)
+            ref_text = text if match is None else match.group(1).strip()
+            batch_results.append({
+                'image_id': meta['image_id'],
+                'image_path': meta['image_path'],
+                'mask': meta['mask'],
+                'score': meta['score'],
+                'text': ref_text,
+            })
+        return batch_results
+
+    results = []
+    batch_msgs, batch_meta = [], []
+    for entry in tqdm(segment_cache, desc='Generating'):
+        for mask_path, score in zip(entry['mask_paths'], entry['scores']):
+            mask = PILImage.open(mask_path)
+            image_with_mask = overlay_mask_on_image(
+                entry['image_path'],
+                mask,
+                max_image_size=args.max_image_size,
+            )
+            example = {
+                'image_id': entry['image_id'],
+                'image_path': entry['image_path'],
                 'image_with_mask': image_with_mask,
                 'mask': mask,
                 'score': score,
-            })
-    messages = [make_conversation(example) for example in tqdm(data_items, desc='Processing Items')]
-    
-    model, processor = get_qwen_model_and_processor(args)
+            }
+            batch_msgs.append(make_conversation(example))
+            batch_meta.append(example)
+            if len(batch_msgs) >= args.vlm_batchsize:
+                results.extend(flush_qwen_batch(batch_msgs, batch_meta))
+                batch_msgs, batch_meta = [], []
+                torch.cuda.empty_cache()
+    results.extend(flush_qwen_batch(batch_msgs, batch_meta))
 
-    make_batches = lambda lst, bs: [lst[i:i + bs] for i in range(0, len(lst), bs)]
-    message_batches = make_batches(messages, args.vlm_batchsize)
-    results = []
-    for batch in tqdm(message_batches, desc=f'Generating'):
-        output_texts = batch_inference(batch, model, processor)
-        for example, text in zip(batch, output_texts):
-            match = re.search(r"the highlighted area:\s*(.+)", text, re.IGNORECASE)
-            ref_text = text if match is None else match.group(1).strip()
-            results.append({
-                'image_id': example['image_id'],
-                'image_path': example['image_path'],
-                'mask': example['mask'],
-                'score': example['score'],
-                'text': ref_text,
-            })
-    
+    del model, processor
+    torch.cuda.empty_cache()
     features = Features({
         "image_id": Value('string'),
         "image_path": Value('string'),
@@ -406,4 +466,4 @@ if __name__ == '__main__':
         "score": Value("float32"),
         "text": Value('string'),
     })
-    save_datalist_to_disk(results, features, args.save_root)
+    save_datalist_to_disk(results, features, save_root)

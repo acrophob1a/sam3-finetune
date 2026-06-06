@@ -7,17 +7,17 @@ defaults:
 # ============================================================================
 #  python sam3/train/train.py -c configs/odinw_text_only.yaml --use-cluster 1 --partition ${PARTITION} --account ${ACCOUNT} --qos ${QoS}
 
-run_name: try-0 # 可改
+run_name: exp-001
 
 paths:
-  annotation_path: datasets/custom0/annotations.json
+  annotation_path: datasets/custom0_exp001/annotations.json
   experiment_log_dir: workdir/${run_name}/
   bpe_path: sam3/assets/bpe_simple_vocab_16e6.txt.gz
   model_path: pretrained/sam3/sam3.pt
 
 
 data_args:
-  num_images: 100
+  num_images: 210
   train_transforms:
     - _target_: sam3.train.transforms.basic_for_api.ComposeAPI
       transforms:
@@ -181,7 +181,7 @@ train_args:
 
 trainer:
   _target_: sam3.train.trainer.Trainer
-  skip_saving_ckpts: true
+  skip_saving_ckpts: false
   empty_gpu_mem_cache_after_eval: True
   skip_first_val: True
   max_epochs: 20
@@ -310,7 +310,7 @@ trainer:
 
 launcher:
   num_nodes: 1
-  gpus_per_node: 2
+  gpus_per_node: 1
   experiment_log_dir: ${paths.experiment_log_dir}
   multiprocessing_context: forkserver
 

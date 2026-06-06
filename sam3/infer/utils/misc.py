@@ -50,19 +50,28 @@ def overlay_mask_on_image(
     mask: Image.Image, 
     color=(255, 255, 0), 
     alpha=128,
+    max_image_size=0,
 ):
     """
     Args:
-        image: PIL Image, RGB or RGBA
+        image_path: path to source image
         mask: PIL Image, binary (white=1 region, black=0)
         color: tuple (R,G,B) highlight color
         alpha: int 0-255 transparency (0=transparent, 255=opaque)
+        max_image_size: resize long edge before overlay (0 = no resize)
     Returns:
         PIL Image with mask overlay
     """
-    # Convert input images to RGBA so we can blend
     image = Image.open(image_path).convert("RGBA")
-    mask = mask.convert("L")  # grayscale mask: white=255, black=0
+    if max_image_size > 0:
+        w, h = image.size
+        long_edge = max(w, h)
+        if long_edge > max_image_size:
+            scale = max_image_size / long_edge
+            image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    mask = mask.convert("L")
+    if mask.size != image.size:
+        mask = mask.resize(image.size, Image.NEAREST)
 
     # Create a colored overlay the same size as the image
     overlay = Image.new("RGBA", image.size, color + (0,))  # start fully transparent

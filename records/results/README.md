@@ -6,21 +6,35 @@
 ## 命名建议
 
 ```
-records/results/exp-{NNN}/{描述}_{baseline|finetuned}.png
+records/results/exp-{NNN}/{描述}_{baseline|finetuned|compare}.png
 ```
-
-示例：
-- `exp-001/truck_baseline.png`
-- `exp-001/truck_finetuned.png`
 
 ## 索引表
 
 | 文件/目录 | 实验 | 说明 |
 |-----------|------|------|
-| — | — | 尚无结果文件 |
+| `exp-001/comparison_summary.json` | exp-001 | 8 组 test 对比数值摘要 |
+| `exp-001/*_compare.png` | exp-001 | 基座 vs 微调 side-by-side（8 张） |
+| `exp-001/*_baseline.png` | exp-001 | SAM3 基座推理（8 张） |
+| `exp-001/*_finetuned.png` | exp-001 | exp-001 微调推理（8 张） |
+
+## exp-001 对比摘要（2026-06-06）
+
+| 测试图 | Prompt（缩写） | 基座检出 | 微调检出 |
+|--------|----------------|----------|----------|
+| 0000.jpg | blue semi-trailer truck | 0 | 4 |
+| 0010.jpg | blue shipping container | 3 | 2 |
+| 0020.jpg | stack of shipping containers | 0 | 1 |
+| 0030.jpg | blue truck trailer | 0 | 2 |
+| 0040.jpg | row of blue semi-trailers | 0 | 1 |
+| 0050.jpg | yellow crane | 0 | 1 |
+| 0060.jpg | container with logo | 6 | 0 |
+| 0069.jpg | truck in port yard | 2 | 2 |
+
+推荐展示：`0000_*_compare.png`、`0020_*_compare.png`、`0040_*_compare.png`（微调明显优于基座）
 
 ## 说明
 
-- 小体积对比图可提交 Git，便于 portfolio
+- 小体积对比图已提交 Git，便于 portfolio / 简历展示
 - 含隐私的原图勿提交；可放脱敏样例或面试时本地演示
 - 大权重、checkpoint 路径写在 `records/experiments.md`，不进 Git

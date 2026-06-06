@@ -30,7 +30,7 @@ from sam3.train.utils.checkpoint_utils import (
     load_state_dict_into_model,
     with_check_parameter_frozen,
 )
-from sam3.train.utils.distributed import all_reduce_max, barrier, get_rank
+from sam3.train.utils.distributed import all_reduce_max, barrier, get_rank, get_world_size
 from sam3.train.utils.logger import Logger, setup_logging
 from sam3.train.utils.train_utils import (
     AverageMeter,
@@ -298,6 +298,10 @@ class Trainer:
 
     def _setup_ddp_distributed_training(self, distributed_conf, accelerator):
         assert isinstance(self.model, torch.nn.Module)
+
+        if get_world_size() == 1:
+            logging.info("Single-GPU training: skipping DistributedDataParallel wrap.")
+            return
 
         self.model = nn.parallel.DistributedDataParallel(
             self.model,

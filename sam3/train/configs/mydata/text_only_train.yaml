@@ -138,7 +138,7 @@ train_args:
   # Training parameters
   num_train_workers: 10
   num_val_workers: 0
-  max_data_epochs: 20
+  max_data_epochs: 10
   target_epoch_size: 1500
   hybrid_repeats: 1
   context_length: 2
@@ -184,7 +184,7 @@ trainer:
   skip_saving_ckpts: false
   empty_gpu_mem_cache_after_eval: True
   skip_first_val: True
-  max_epochs: 20
+  max_epochs: 10
   accelerator: cuda
   seed_value: 123
   val_epoch_freq: 10
@@ -194,7 +194,7 @@ trainer:
   distributed:
     backend: nccl
     find_unused_parameters: True
-    gradient_as_bucket_view: True
+    gradient_as_bucket_view: False
 
   loss:
     all: ${data_args.loss}

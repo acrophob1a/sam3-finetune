@@ -48,7 +48,8 @@
 - `text_only_train.yaml`：`run_name=exp-001`，`num_images=210`，`gpus_per_node=1`，`skip_saving_ckpts=false`，`max_epochs=10`
 - `sam3/train/trainer.py`：单卡（`world_size=1`）跳过 DDP 包装，修复 step 1 的 unused-parameter 报错
 
-**训练日志**：`records/logs/train_exp001.log`
+**训练日志**：`records/logs/train_exp001.log`  
+**数据流文档**（2026-06-06）：`SFT_DATAFLOW.md` · `SFT_DATAFLOW_LEARN.md` · `scripts/sft_dataflow_trace.py`
 
 **命令**：
 ```bash

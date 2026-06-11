@@ -1,0 +1,330 @@
+# @package _global_
+defaults:
+  - _self_
+
+# ============================================================================
+# Paths Configuration (Chage this to your own paths)
+# ============================================================================
+#  python sam3/train/train.py -c configs/odinw_text_only.yaml --use-cluster 1 --partition ${PARTITION} --account ${ACCOUNT} --qos ${QoS}
+
+run_name: exp-002
+
+paths:
+  annotation_path: datasets/custom0_exp001/annotations.json
+  experiment_log_dir: workdir/${run_name}/
+  bpe_path: sam3/assets/bpe_simple_vocab_16e6.txt.gz
+  model_path: pretrained/sam3/sam3.pt
+
+
+data_args:
+  num_images: 210
+  train_transforms:
+    - _target_: sam3.train.transforms.basic_for_api.ComposeAPI
+      transforms:
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+          query_filter:
+            _target_: sam3.train.transforms.filter_query_transforms.FilterCrowds
+        - _target_: sam3.train.transforms.point_sampling.RandomizeInputBbox
+          box_noise_std: 0.1
+          box_noise_max: 20
+        - _target_: sam3.train.transforms.segmentation.DecodeRle
+        - _target_: sam3.train.transforms.basic_for_api.RandomResizeAPI
+          sizes:
+            _target_: sam3.train.transforms.basic.get_random_resize_scales
+            size: ${train_args.resolution}
+            min_size: 480
+            rounded: false
+          max_size:
+            _target_: sam3.train.transforms.basic.get_random_resize_max_size
+            size: ${train_args.resolution}
+          square: true
+          consistent_transform: ${train_args.consistent_transform}
+        - _target_: sam3.train.transforms.basic_for_api.PadToSizeAPI
+          size: ${train_args.resolution}
+          consistent_transform: ${train_args.consistent_transform}
+        - _target_: sam3.train.transforms.basic_for_api.ToTensorAPI
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+          query_filter:
+            _target_: sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
+        - _target_: sam3.train.transforms.basic_for_api.NormalizeAPI
+          mean: ${train_args.train_norm_mean}
+          std: ${train_args.train_norm_std}
+        - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+          query_filter:
+            _target_: sam3.train.transforms.filter_query_transforms.FilterEmptyTargets
+    - _target_: sam3.train.transforms.filter_query_transforms.FlexibleFilterFindGetQueries
+      query_filter:
+        _target_: sam3.train.transforms.filter_query_transforms.FilterFindQueriesWithTooManyOut
+        max_num_objects: ${train_args.max_ann_per_img}
+
+  loss:
+    _target_: sam3.train.loss.sam3_loss.Sam3LossWrapper
+    matcher: ${train_args.matcher}
+    o2m_weight: 2.0
+    o2m_matcher:
+      _target_: sam3.train.matcher.BinaryOneToManyMatcher
+      alpha: 0.3
+      threshold: 0.4
+      topk: 4
+    use_o2m_matcher_on_o2m_aux: false # Another option is true
+    loss_fns_find:
+      - _target_: sam3.train.loss.loss_fns.Boxes
+        weight_dict:
+          loss_bbox: 5.0
+          loss_giou: 2.0
+      - _target_: sam3.train.loss.loss_fns.IABCEMdetr
+        weak_loss: False
+        weight_dict:
+          loss_ce: 20.0 # Another option is 100.0
+          presence_loss: 20.0
+        pos_weight: 10.0 # Another option is 5.0
+        alpha: 0.25
+        gamma: 2
+        use_presence: True  # Change
+        pos_focal: false
+        pad_n_queries: 200
+        pad_scale_pos: 1.0
+
+    loss_fn_semantic_seg: null
+    scale_by_find_batch_size: ${train_args.scale_by_find_batch_size}
+
+
+# ============================================================================
+# Different helper parameters and functions
+# ============================================================================
+train_args:
+  enable_segmentation: True # NOTE: This is the number of queries used for segmentation
+  # Model parameters
+  d_model: 256
+  pos_embed:
+    _target_: sam3.model.position_encoding.PositionEmbeddingSine
+    num_pos_feats: ${train_args.d_model}
+    normalize: true
+    scale: null
+    temperature: 10000
+
+  # Box processing
+  use_presence_eval: True
+  original_box_postprocessor:
+    _target_: sam3.eval.postprocessors.PostProcessImage
+    max_dets_per_img: -1  # infinite detections
+    use_original_ids: true
+    use_original_sizes_box: true
+    use_presence: ${train_args.use_presence_eval}
+
+  # Matcher configuration
+  matcher:
+    _target_: sam3.train.matcher.BinaryHungarianMatcherV2
+    focal: true  # with `focal: true` it is equivalent to BinaryFocalHungarianMatcher
+    cost_class: 2.0
+    cost_bbox: 5.0
+    cost_giou: 2.0
+    alpha: 0.25
+    gamma: 2
+    stable: False
+  scale_by_find_batch_size: True
+
+  # Image processing parameters
+  resolution: 1008
+  consistent_transform: False
+  max_ann_per_img: 200
+
+  # Normalization parameters
+  train_norm_mean: [0.5, 0.5, 0.5]
+  train_norm_std: [0.5, 0.5, 0.5]
+  val_norm_mean: [0.5, 0.5, 0.5]
+  val_norm_std: [0.5, 0.5, 0.5]
+
+  # Training parameters
+  num_train_workers: 6
+  num_val_workers: 0
+  max_data_epochs: 5
+  target_epoch_size: 1500
+  hybrid_repeats: 1
+  context_length: 2
+  gather_pred_via_filesys: false
+
+  # Learning rate and scheduler parameters
+  lr_scale: 0.1
+  lr_transformer: ${times:8e-4,${train_args.lr_scale}}
+  lr_vision_backbone: ${times:2.5e-4,${train_args.lr_scale}}
+  lr_language_backbone: ${times:5e-5,${train_args.lr_scale}}
+  lrd_vision_backbone: 0.9
+  wd: 0.1
+  scheduler_timescale: 20
+  scheduler_warmup: 20
+  scheduler_cooldown: 20
+
+  val_batch_size: 1
+  collate_fn_val:
+    _target_: sam3.train.data.collator.collate_fn_api
+    _partial_: true
+    repeats: ${train_args.hybrid_repeats}
+    dict_key: roboflow100
+    with_seg_masks: ${train_args.enable_segmentation} # Note: Set this to true if using segmentation masks!
+
+  gradient_accumulation_steps: 1
+  train_batch_size: 1
+  collate_fn:
+    _target_: sam3.train.data.collator.collate_fn_api
+    _partial_: true
+    repeats: ${train_args.hybrid_repeats}
+    dict_key: all
+    with_seg_masks: ${train_args.enable_segmentation} # Note: Set this to true if using segmentation masks!
+
+
+
+
+# ============================================================================
+# Trainer Configuration
+# ============================================================================
+
+trainer:
+  _target_: sam3.train.trainer.Trainer
+  skip_saving_ckpts: false
+  empty_gpu_mem_cache_after_eval: True
+  skip_first_val: True
+  max_epochs: 5
+  accelerator: cuda
+  seed_value: 123
+  val_epoch_freq: 10
+  mode: train_only
+  gradient_accumulation_steps: ${train_args.gradient_accumulation_steps}
+
+  distributed:
+    backend: nccl
+    find_unused_parameters: True
+    gradient_as_bucket_view: False
+
+  loss:
+    all: ${data_args.loss}
+    default:
+      _target_: sam3.train.loss.sam3_loss.DummyLoss
+
+  data:
+    train:
+      _target_: sam3.train.data.torch_dataset.TorchDataset
+      dataset:
+        _target_: sam3.train.data.sam3_image_dataset.Sam3ImageDataset
+        limit_ids: ${data_args.num_images}
+        transforms: ${data_args.train_transforms}
+        load_segmentation: ${train_args.enable_segmentation}
+        max_ann_per_img: 500000
+        multiplier: 1
+        max_train_queries: 50000
+        max_val_queries: 50000
+        training: true
+        use_caching: False
+        img_folder: /
+        ann_file: ${paths.annotation_path}
+        use_noun_phrase_loader: true
+        
+      shuffle: True
+      batch_size: ${train_args.train_batch_size}
+      num_workers: ${train_args.num_train_workers}
+      pin_memory: True
+      drop_last: True
+      collate_fn: ${train_args.collate_fn}
+
+  model:
+    _target_: sam3.model_builder.build_sam3_image_model
+    bpe_path: ${paths.bpe_path}
+    checkpoint_path: ${paths.model_path}
+    device: cpus
+    eval_mode: false
+    enable_segmentation: ${train_args.enable_segmentation}.
+
+  meters: null
+
+  optim:
+    amp:
+      enabled: True
+      amp_dtype: bfloat16
+
+    optimizer:
+      _target_: torch.optim.AdamW
+
+    gradient_clip:
+      _target_: sam3.train.optim.optimizer.GradientClipper
+      max_norm: 0.1
+      norm_type: 2
+
+    param_group_modifiers:
+      - _target_: sam3.train.optim.optimizer.layer_decay_param_modifier
+        _partial_: True
+        layer_decay_value: ${train_args.lrd_vision_backbone}
+        apply_to: 'backbone.vision_backbone.trunk'
+        overrides:
+          - pattern: '*pos_embed*'
+            value: 1.0
+
+    options:
+      lr:
+        - scheduler:  # transformer and class_embed
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            base_lr: ${train_args.lr_transformer}
+            timescale: ${train_args.scheduler_timescale}
+            warmup_steps: ${train_args.scheduler_warmup}
+            cooldown_steps: ${train_args.scheduler_cooldown}
+        - scheduler:
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            base_lr: ${train_args.lr_vision_backbone}
+            timescale: ${train_args.scheduler_timescale}
+            warmup_steps: ${train_args.scheduler_warmup}
+            cooldown_steps: ${train_args.scheduler_cooldown}
+          param_names:
+            - 'backbone.vision_backbone.*'
+        - scheduler:
+            _target_: sam3.train.optim.schedulers.InverseSquareRootParamScheduler
+            base_lr: ${train_args.lr_language_backbone}
+            timescale: ${train_args.scheduler_timescale}
+            warmup_steps: ${train_args.scheduler_warmup}
+            cooldown_steps: ${train_args.scheduler_cooldown}
+          param_names:
+            - 'backbone.language_backbone.*'
+
+      weight_decay:
+        - scheduler:
+            _target_: fvcore.common.param_scheduler.ConstantParamScheduler
+            value: ${train_args.wd}
+        - scheduler:
+            _target_: fvcore.common.param_scheduler.ConstantParamScheduler
+            value: 0.0
+          param_names:
+            - '*bias*'
+          module_cls_names: ['torch.nn.LayerNorm']
+
+  checkpoint:
+    save_dir: ${launcher.experiment_log_dir}/checkpoints
+    save_freq: 0  # 0 only last checkpoint is saved.
+
+
+  logging:
+    tensorboard_writer: null
+    wandb_writer: null
+    log_dir: ${launcher.experiment_log_dir}/logs
+    log_freq: 10
+
+# ============================================================================
+# Launcher and Submitit Configuration
+# ============================================================================
+
+launcher:
+  num_nodes: 1
+  gpus_per_node: 1
+  experiment_log_dir: ${paths.experiment_log_dir}
+  multiprocessing_context: forkserver
+
+submitit:
+  account: null
+  partition: null
+  qos: null
+  timeout_hour: 72
+  use_cluster: True
+  cpus_per_task: 6
+  port_range: [10000, 65000]
+  constraint: null
+  # Uncomment for job array configuration
+  job_array:
+    num_tasks: 100
+    task_index: 0

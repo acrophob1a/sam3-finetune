@@ -1,7 +1,8 @@
 # SAM3 语言指令分割微调 — 项目总结（简历用）
 
 > 仓库：[github.com/acrophob1a/sam3-finetune](https://github.com/acrophob1a/sam3-finetune)  
-> 留痕：`records/experiments.md` · 对比图：`records/results/exp-001/`
+> 留痕：`records/experiments.md` · 对比图：`records/results/exp-001/` · `records/results/exp-002/`  
+> exp-002 总结：[EXP002_SUMMARY.md](EXP002_SUMMARY.md)
 
 ---
 
@@ -15,7 +16,7 @@
 
 - **场景**：内陆港口、集装箱堆场、货运卡车等工业视觉场景（TRUDI 数据集）
 - **任务**：给定图像 + 英文文本描述（如 *"A large blue semi-trailer truck"*），输出对应实例分割 mask
-- **目标**：验证 SAM3 在垂直领域数据上的可微调性，形成可复现、可留痕的实验基线（exp-001）
+- **目标**：验证 SAM3 在垂直领域数据上的可微调性，形成可复现、可留痕的实验基线（exp-001 → exp-002 noun_phrase）
 
 ---
 
@@ -71,6 +72,25 @@
 
 ---
 
+## 关键结果（exp-002）
+
+| 指标 | 数值 |
+|------|------|
+| 训练策略 | 每条 Qwen `noun_phrase` → 1 个 mask 监督 |
+| 微调耗时 | 5 epoch · ~24 min · 1050 steps |
+| 训练 loss | core_loss ≈ 208.5 · presence_acc ≈ 97% |
+| 三模型对比 | 8 组 test 短 prompt · 基座 2/8 · exp-001 **6/8** · exp-002 0/8 |
+
+**定性观察**：
+
+- exp-002 pipeline（`COCO_FROM_JSON_NOUN_PHRASE`）训练稳定，语言塔参与更新
+- 在与 exp-001 相同的 **短 prompt** 测试上 exp-002 零检出，说明 train/test 文本分布对齐至关重要
+- 后续应用 exp-002 时，推理 prompt 应使用与 Qwen 标注同风格的长句 `noun_phrase`
+
+详细分析见 [EXP002_SUMMARY.md](EXP002_SUMMARY.md) · 对比图 `records/results/exp-002/`
+
+---
+
 ## Pipeline 架构
 
 ```
@@ -79,10 +99,10 @@ TRUDI ground.zip
 raw_images_train (210) + raw_images_test (70)
     ↓ SAM3 点分割 + Qwen2.5-VL 描述
 custom0_exp001/annotations.json (4279条)
-    ↓ text_only_train.yaml · 10 epoch
-workdir/exp-001/checkpoints/checkpoint.pt
-    ↓ compare_base_finetuned.py
-records/results/exp-001/*_compare.png
+    ↓ text_only_train.yaml · 10 epoch          text_nounphrase_train.yaml · 5 epoch
+workdir/exp-001/checkpoints/checkpoint.pt    workdir/exp-002/checkpoints/checkpoint.pt
+    ↓ compare_base_finetuned.py              ↓ compare_three_models.py
+records/results/exp-001/*_compare.png        records/results/exp-002/*_compare.png
 ```
 
 ---
@@ -94,12 +114,14 @@ records/results/exp-001/*_compare.png
 - 基于 SAM3 搭建港口场景语言指令分割微调 pipeline，完成 TRUDI 210 张训练数据自动标注（SAM3 + Qwen2.5-VL）及 10 epoch 微调
 - 优化大图标注流程（分辨率缩放、流式 VLM、显存分阶段释放），将标注生成从 OOM 失败修复为稳定产出 4279 条三元组
 - 修复单卡 PyTorch DDP unused-parameter 训练崩溃，编写基座/微调对比推理脚本，验证领域微调对专用文本 prompt 的检出提升
+- 实现 exp-002 noun_phrase 逐条监督微调，新增 `COCO_FROM_JSON_NOUN_PHRASE` loader 及三模型对比脚本
 
 **English**
 
 - Built an end-to-end language-guided segmentation fine-tuning pipeline on SAM3 using the TRUDI port/container dataset (210 images, 4.3K auto-labeled masks via SAM3 + Qwen2.5-VL)
 - Optimized large-image annotation workflow (resize, streaming VLM batches, staged GPU memory release) to resolve OOM failures
 - Fixed single-GPU DDP training crash and delivered base vs. fine-tuned inference comparisons showing improved text-prompt detection on domain-specific queries
+- Implemented exp-002 per-phrase noun_phrase SFT with three-way inference comparison (baseline / exp-001 / exp-002)
 
 ---
 
@@ -117,6 +139,9 @@ python sam3/train/train.py -c configs/mydata/text_only_train.yaml --use-cluster 
 
 # 基座 vs 微调对比
 python scripts/compare_base_finetuned.py
+
+# 三模型对比（基座 / exp-001 / exp-002）
+python scripts/compare_three_models.py
 ```
 
 完整步骤见 `instruction.md`，实验记录见 `records/experiments.md`。
@@ -125,6 +150,7 @@ python scripts/compare_base_finetuned.py
 
 ## 后续可扩展方向
 
+- 用 JSON 内真实 `noun_phrase` 评估 exp-002（train/test 同分布）
 - 引入 val 集定量指标（mAP / IoU）
-- 增加 epoch 或 LoRA 等高效微调对比（exp-002）
+- 混合 prompt 训练或 LoRA 高效微调（exp-003）
 - 中文指令 / 多 prompt 联合训练

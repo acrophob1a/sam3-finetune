@@ -1,0 +1,148 @@
+[
+  {
+    "image": "0000.jpg",
+    "prompt": "A large blue semi-trailer truck",
+    "baseline_objects": 0,
+    "baseline_scores": [],
+    "baseline_png": "records/results/exp-002/0000_A_large_blue_semi-trailer_truck_baseline.png",
+    "exp001_objects": 4,
+    "exp001_scores": [
+      0.6396,
+      0.6983,
+      0.5936,
+      0.6048
+    ],
+    "exp001_png": "records/results/exp-002/0000_A_large_blue_semi-trailer_truck_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0000_A_large_blue_semi-trailer_truck_exp002.png",
+    "compare_png": "records/results/exp-002/0000_A_large_blue_semi-trailer_truck_compare.png"
+  },
+  {
+    "image": "0010.jpg",
+    "prompt": "A blue shipping container with identification markings",
+    "baseline_objects": 3,
+    "baseline_scores": [
+      0.6483,
+      0.9789,
+      0.6164
+    ],
+    "baseline_png": "records/results/exp-002/0010_A_blue_shipping_container_with_identific_baseline.png",
+    "exp001_objects": 2,
+    "exp001_scores": [
+      0.6497,
+      0.5694
+    ],
+    "exp001_png": "records/results/exp-002/0010_A_blue_shipping_container_with_identific_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0010_A_blue_shipping_container_with_identific_exp002.png",
+    "compare_png": "records/results/exp-002/0010_A_blue_shipping_container_with_identific_compare.png"
+  },
+  {
+    "image": "0020.jpg",
+    "prompt": "A stack of shipping containers",
+    "baseline_objects": 0,
+    "baseline_scores": [],
+    "baseline_png": "records/results/exp-002/0020_A_stack_of_shipping_containers_baseline.png",
+    "exp001_objects": 1,
+    "exp001_scores": [
+      0.6564
+    ],
+    "exp001_png": "records/results/exp-002/0020_A_stack_of_shipping_containers_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0020_A_stack_of_shipping_containers_exp002.png",
+    "compare_png": "records/results/exp-002/0020_A_stack_of_shipping_containers_compare.png"
+  },
+  {
+    "image": "0030.jpg",
+    "prompt": "A blue truck trailer",
+    "baseline_objects": 0,
+    "baseline_scores": [],
+    "baseline_png": "records/results/exp-002/0030_A_blue_truck_trailer_baseline.png",
+    "exp001_objects": 2,
+    "exp001_scores": [
+      0.6207,
+      0.6665
+    ],
+    "exp001_png": "records/results/exp-002/0030_A_blue_truck_trailer_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0030_A_blue_truck_trailer_exp002.png",
+    "compare_png": "records/results/exp-002/0030_A_blue_truck_trailer_compare.png"
+  },
+  {
+    "image": "0040.jpg",
+    "prompt": "A row of blue semi-trailers parked in a lot",
+    "baseline_objects": 0,
+    "baseline_scores": [],
+    "baseline_png": "records/results/exp-002/0040_A_row_of_blue_semi-trailers_parked_in_a__baseline.png",
+    "exp001_objects": 1,
+    "exp001_scores": [
+      0.5883
+    ],
+    "exp001_png": "records/results/exp-002/0040_A_row_of_blue_semi-trailers_parked_in_a__exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0040_A_row_of_blue_semi-trailers_parked_in_a__exp002.png",
+    "compare_png": "records/results/exp-002/0040_A_row_of_blue_semi-trailers_parked_in_a__compare.png"
+  },
+  {
+    "image": "0050.jpg",
+    "prompt": "A yellow crane or lifting equipment",
+    "baseline_objects": 0,
+    "baseline_scores": [],
+    "baseline_png": "records/results/exp-002/0050_A_yellow_crane_or_lifting_equipment_baseline.png",
+    "exp001_objects": 1,
+    "exp001_scores": [
+      0.5757
+    ],
+    "exp001_png": "records/results/exp-002/0050_A_yellow_crane_or_lifting_equipment_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0050_A_yellow_crane_or_lifting_equipment_exp002.png",
+    "compare_png": "records/results/exp-002/0050_A_yellow_crane_or_lifting_equipment_compare.png"
+  },
+  {
+    "image": "0060.jpg",
+    "prompt": "A shipping container with logo markings",
+    "baseline_objects": 6,
+    "baseline_scores": [
+      0.6396,
+      0.8451,
+      0.821,
+      0.5603,
+      0.7723,
+      0.5127
+    ],
+    "baseline_png": "records/results/exp-002/0060_A_shipping_container_with_logo_markings_baseline.png",
+    "exp001_objects": 0,
+    "exp001_scores": [],
+    "exp001_png": "records/results/exp-002/0060_A_shipping_container_with_logo_markings_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0060_A_shipping_container_with_logo_markings_exp002.png",
+    "compare_png": "records/results/exp-002/0060_A_shipping_container_with_logo_markings_compare.png"
+  },
+  {
+    "image": "0069.jpg",
+    "prompt": "A truck in a port or container yard",
+    "baseline_objects": 2,
+    "baseline_scores": [
+      0.6647,
+      0.7081
+    ],
+    "baseline_png": "records/results/exp-002/0069_A_truck_in_a_port_or_container_yard_baseline.png",
+    "exp001_objects": 2,
+    "exp001_scores": [
+      0.5063,
+      0.5038
+    ],
+    "exp001_png": "records/results/exp-002/0069_A_truck_in_a_port_or_container_yard_exp001.png",
+    "exp002_objects": 0,
+    "exp002_scores": [],
+    "exp002_png": "records/results/exp-002/0069_A_truck_in_a_port_or_container_yard_exp002.png",
+    "compare_png": "records/results/exp-002/0069_A_truck_in_a_port_or_container_yard_compare.png"
+  }
+]

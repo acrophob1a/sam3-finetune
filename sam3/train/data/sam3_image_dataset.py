@@ -24,7 +24,7 @@ from PIL.Image import DecompressionBombError
 from sam3.model.box_ops import box_xywh_to_xyxy
 from torchvision.datasets.vision import VisionDataset
 
-from .coco_json_loaders import COCO_FROM_JSON
+from .coco_json_loaders import COCO_FROM_JSON, COCO_FROM_JSON_NOUN_PHRASE
 
 
 @dataclass
@@ -158,6 +158,7 @@ class CustomCocoDetectionAPI(VisionDataset):
         zstd_dict_path=None,
         filter_query=None,
         coco_json_loader: Callable = COCO_FROM_JSON,
+        use_noun_phrase_loader: bool = False,
         limit_ids: int = None,
     ) -> None:
         super().__init__(root)
@@ -172,7 +173,10 @@ class CustomCocoDetectionAPI(VisionDataset):
         self.filter_query = filter_query
 
         self.coco = None
-        self.coco_json_loader = coco_json_loader
+        if use_noun_phrase_loader:
+            self.coco_json_loader = COCO_FROM_JSON_NOUN_PHRASE
+        else:
+            self.coco_json_loader = coco_json_loader
         self.limit_ids = limit_ids
         self.set_sharded_annotation_file(0)
         self.training = training
@@ -453,6 +457,7 @@ class Sam3ImageDataset(CustomCocoDetectionAPI):
         zstd_dict_path=None,
         filter_query=None,
         coco_json_loader: Callable = COCO_FROM_JSON,
+        use_noun_phrase_loader: bool = False,
         limit_ids: int = None,
     ):
         super(Sam3ImageDataset, self).__init__(
@@ -466,6 +471,7 @@ class Sam3ImageDataset(CustomCocoDetectionAPI):
             zstd_dict_path=zstd_dict_path,
             filter_query=filter_query,
             coco_json_loader=coco_json_loader,
+            use_noun_phrase_loader=use_noun_phrase_loader,
             limit_ids=limit_ids,
         )
 

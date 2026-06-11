@@ -43,14 +43,19 @@ RAW_SAMPLE = {
 }
 
 
-def load_cfg():
+def load_cfg(config_name: str = "exp-001"):
     from hydra import compose, initialize_config_module
     from omegaconf import OmegaConf
     from sam3.train.utils.train_utils import register_omegaconf_resolvers
 
     register_omegaconf_resolvers()
+    cfg_map = {
+        "exp-001": "configs/mydata/text_only_train",
+        "exp-002": "configs/mydata/text_nounphrase_train",
+    }
+    hydra_name = cfg_map.get(config_name, config_name)
     with initialize_config_module(config_module="sam3.train", version_base="1.2"):
-        cfg = compose(config_name="configs/mydata/text_only_train")
+        cfg = compose(config_name=hydra_name)
     OmegaConf.resolve(cfg)
     return cfg
 
@@ -208,14 +213,14 @@ def print_doc():
     print("  scripts/sft_dataflow_trace.py — this script")
 
 
-def run_trace(forward: bool = False, step: str | None = None):
+def run_trace(forward: bool = False, step: str | None = None, config_name: str = "exp-001"):
     steps = [step] if step else list(STEPS)
 
     if "A1" in steps or not step:
         print("\n=== A1: annotations.json ===")
         print(json.dumps(trace_a1(), indent=2, ensure_ascii=False))
 
-    cfg = load_cfg()
+    cfg = load_cfg(config_name)
     ds, datapoint = build_dataset(cfg, sample_idx=0)
 
     if "A2" in steps or not step:
@@ -248,13 +253,19 @@ def main():
     parser.add_argument("--doc", action="store_true")
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--forward", action="store_true")
+    parser.add_argument(
+        "--config",
+        default="exp-001",
+        choices=["exp-001", "exp-002"],
+        help="Training config: exp-001 (object) or exp-002 (noun_phrase)",
+    )
     parser.add_argument("--step", type=str, default=None, choices=list(STEPS))
     args = parser.parse_args()
 
     if args.doc:
         print_doc()
     if args.run or args.step:
-        run_trace(forward=args.forward, step=args.step)
+        run_trace(forward=args.forward, step=args.step, config_name=args.config)
     if not args.doc and not args.run and not args.step:
         print_doc()
 

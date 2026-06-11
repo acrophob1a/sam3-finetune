@@ -11,11 +11,73 @@
 
 | 实验 | 日期 | 状态 | 数据版本 | 摘要 |
 |------|------|------|----------|------|
-| exp-001 | 2026-06-06 | 完成 | data-v1 | TRUDI 210 张，港口场景语言指令分割基线 |
+| exp-002 | 2026-06-06 | 完成 | data-v1 | noun_phrase 逐条监督，自然语言指令对齐 |
+| exp-001 | 2026-06-06 | 完成 | data-v1 | TRUDI 210 张，query=`object` 基线 |
 
 ---
 
 <!-- 在下方追加实验条目，最新实验放在索引表更新后、旧条目之上 -->
+
+## exp-002 — noun_phrase 自然语言指令微调 — 2026-06-06
+
+**状态**：完成（5 epoch，2026-06-11 03:52）
+
+**动机**：对齐项目初衷——每条 Qwen `noun_phrase` 作为独立 text query，一句描述 → 一个 mask，而非 exp-001 的 `"object"` 粗粒度监督。
+
+**数据版本**：data-v1（同 `custom0_exp001/annotations.json`，4279 条 noun_phrase）
+
+**配置**：
+| 项 | 值 |
+|----|-----|
+| run_name | exp-002 |
+| config | `sam3/train/configs/mydata/text_nounphrase_train.yaml` |
+| loader | `COCO_FROM_JSON_NOUN_PHRASE`（`use_noun_phrase_loader: true`） |
+| base_model | `pretrained/sam3/sam3.pt` |
+| max_epochs | **5**（每图 ~20 query，较 exp-001 更重；省磁盘/时间） |
+| checkpoint | 仅最终（`save_freq: 0`）≈ 9.4G |
+| 数据盘 | `/root/autodl-tmp` 可用 ~57G |
+
+**配置快照**：`configs/snapshots/exp-002.yaml`
+
+**代码改动**：
+- `coco_json_loaders.py`：新增 `COCO_FROM_JSON_NOUN_PHRASE`
+- `sam3_image_dataset.py`：`use_noun_phrase_loader` 开关
+- `scripts/run_exp002_train_shutdown.sh`：训练完成后关机
+
+**命令**：
+```bash
+bash scripts/run_exp002_train_shutdown.sh
+# 或
+python sam3/train/train.py -c configs/mydata/text_nounphrase_train.yaml --use-cluster 0 --num-gpus 1
+```
+
+**预期**：每图 ~8–48 条 query（avg ~20），每条 `object_ids_output=[1]`；`find_text_batch` 为去重后的 noun_phrase 列表。
+
+**数据流文档**：[`SFT_DATAFLOW_EXP002.md`](../SFT_DATAFLOW_EXP002.md) · [`SFT_DATAFLOW_EXP002_LEARN.md`](../SFT_DATAFLOW_EXP002_LEARN.md)
+
+**结果**：
+- checkpoint：`workdir/exp-002/checkpoints/checkpoint.pt`（9.4G）
+- 训练耗时：约 **24 分钟**（5 epoch × 210 steps）
+- 最终 loss：Epoch 4 avg ~208（core_loss 208.5）
+- presence_dec_acc：~0.97
+- 训练日志：`records/logs/train_exp002.log`
+- 自动关机：**失败**（容器无 systemd/shutdown，需在 AutoDL 控制台手动关机）
+
+**观察与结论**：
+- noun_phrase loader 训练稳定；每 step ~1.3s（约为 exp-001 的 1.6×）
+- **三模型推理对比**（2026-06-11，8 组与 exp-001 相同短 prompt）：基座 2/8 · exp-001 **6/8** · exp-002 **0/8** 成功检出
+- exp-002 在短 prompt 上全灭，主因 train（长 Qwen noun_phrase）与 test（手写短句）分布不一致；pipeline 本身验证通过
+- 对比图：`records/results/exp-002/`（8 组三联 compare + `comparison_summary.json`）
+- 推理日志：`records/logs/infer_exp002_compare.log`（本地）
+- 总结文档：[EXP002_SUMMARY.md](../EXP002_SUMMARY.md)
+
+**下一步**：
+1. ~~训练~~ ✅
+2. ~~三模型推理对比~~ ✅
+3. （可选）用 JSON 内真实 `noun_phrase` 作 test prompt 再评 exp-002
+4. （可选）exp-003：混合 prompt 或更长训练
+
+---
 
 ## exp-001 — TRUDI 港口场景基线微调 — 2026-06-06
 
@@ -49,7 +111,7 @@
 - `sam3/train/trainer.py`：单卡（`world_size=1`）跳过 DDP 包装，修复 step 1 的 unused-parameter 报错
 
 **训练日志**：`records/logs/train_exp001.log`  
-**数据流文档**（2026-06-06）：`SFT_DATAFLOW.md` · `SFT_DATAFLOW_LEARN.md` · `scripts/sft_dataflow_trace.py`
+**数据流文档**（2026-06-06）：`SFT_DATAFLOW.md` · `SFT_DATAFLOW_LEARN.md` · `SFT_DATAFLOW_10MIN.md`
 
 **命令**：
 ```bash

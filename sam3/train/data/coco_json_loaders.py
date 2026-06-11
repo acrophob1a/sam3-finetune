@@ -275,6 +275,103 @@ class COCO_FROM_JSON:
         return images
 
 
+class COCO_FROM_JSON_NOUN_PHRASE:
+    """
+    COCO training API: one find query per annotation, using ``noun_phrase`` as
+    ``query_text`` and a single GT object per query (language-instruction SFT).
+    """
+
+    def __init__(self, annotation_file):
+        self._raw_data, self._cat_idx_to_text = load_coco_and_group_by_image(
+            annotation_file
+        )
+
+    def getDatapointIds(self):
+        return list(range(len(self._raw_data)))
+
+    def loadQueriesAndAnnotationsFromDatapoint(self, idx):
+        queries = []
+        annotations = []
+
+        query_template = {
+            "id": None,
+            "original_cat_id": None,
+            "object_ids_output": None,
+            "query_text": None,
+            "query_processing_order": 0,
+            "ptr_x_query_id": None,
+            "ptr_y_query_id": None,
+            "image_id": 0,
+            "input_box": None,
+            "input_box_label": None,
+            "input_points": None,
+            "is_exhaustive": True,
+        }
+
+        annot_template = {
+            "image_id": 0,
+            "bbox": None,
+            "area": None,
+            "segmentation": None,
+            "object_id": None,
+            "is_crowd": None,
+            "id": None,
+        }
+
+        raw_annotations = self._raw_data[idx]["annotations"]
+        image_info = self._raw_data[idx]["image"]
+        width, height = image_info["width"], image_info["height"]
+
+        for ann in raw_annotations:
+            query_text = ann.get("noun_phrase", "").strip()
+            if not query_text:
+                query_text = self._cat_idx_to_text.get(ann["category_id"], "object")
+
+            annotation = annot_template.copy()
+            annotation["id"] = len(annotations)
+            annotation["object_id"] = annotation["id"]
+            annotation["is_crowd"] = ann["iscrowd"]
+
+            normalized_boxes = convert_boxlist_to_normalized_tensor(
+                [ann["bbox"]], width, height
+            )
+            bbox = normalized_boxes[0]
+            annotation["area"] = (bbox[2] * bbox[3]).item()
+            annotation["bbox"] = bbox
+
+            if (
+                "segmentation" in ann
+                and ann["segmentation"] is not None
+                and ann["segmentation"] != []
+            ):
+                annotation["segmentation"] = ann_to_rle(
+                    ann["segmentation"], im_info=image_info
+                )
+
+            annotations.append(annotation)
+            ann_id = annotation["id"]
+
+            query = query_template.copy()
+            query["id"] = len(queries)
+            query["original_cat_id"] = ann["category_id"]
+            query["query_text"] = query_text
+            query["object_ids_output"] = [ann_id]
+            queries.append(query)
+
+        return queries, annotations
+
+    def loadImagesFromDatapoint(self, idx):
+        img_data = self._raw_data[idx]["image"]
+        return [
+            {
+                "id": 0,
+                "file_name": img_data["file_name"],
+                "original_img_id": img_data["id"],
+                "coco_img_id": img_data["id"],
+            }
+        ]
+
+
 # ============================================================================
 # SAM3 Evaluation APIs
 # ============================================================================

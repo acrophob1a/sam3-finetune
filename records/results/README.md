@@ -17,6 +17,27 @@ records/results/exp-{NNN}/{描述}_{baseline|finetuned|compare}.png
 | `exp-001/*_compare.png` | exp-001 | 基座 vs 微调 side-by-side（8 张） |
 | `exp-001/*_baseline.png` | exp-001 | SAM3 基座推理（8 张） |
 | `exp-001/*_finetuned.png` | exp-001 | exp-001 微调推理（8 张） |
+| `exp-002/comparison_summary.json` | exp-002 | 三模型对比数值（基座 / exp-001 / exp-002） |
+| `exp-002/*_compare.png` | exp-002 | 三联 side-by-side（8 张） |
+| `exp-002/*_{baseline,exp001,exp002}.png` | exp-002 | 单模型推理 overlay（24 张） |
+
+## exp-002 对比摘要（2026-06-11）
+
+与 exp-001 相同 8 组 test 短 prompt，confidence ≥ 0.5：
+
+| 测试图 | 基座 | exp-001 | exp-002 |
+|--------|------|---------|---------|
+| 0000.jpg | 0 | 4 | 0 |
+| 0010.jpg | 3 | 2 | 0 |
+| 0020.jpg | 0 | 1 | 0 |
+| 0030.jpg | 0 | 2 | 0 |
+| 0040.jpg | 0 | 1 | 0 |
+| 0050.jpg | 0 | 1 | 0 |
+| 0060.jpg | 6 | 0 | 0 |
+| 0069.jpg | 2 | 2 | 0 |
+| **合计成功** | 2/8 | **6/8** | 0/8 |
+
+完整分析见 [EXP002_SUMMARY.md](../../EXP002_SUMMARY.md)。推荐展示：`0000_*_compare.png`（exp-001 明显优于 exp-002）。
 
 ## exp-001 对比摘要（2026-06-06）
 
